@@ -1,0 +1,94 @@
+configfile:'config-preprocessing.json'
+
+reference=config['reference']
+chromosomes = ['chr01','chr02','chr03','chr04','chr05','chr06','chr07','chr08','chr09','chr10','chr11','chr12','chr00']
+rule all:
+	input:
+		expand('alignments/{technology}.{chrom}.bam.bai', technology=['correctedminion'], chrom=chromosomes),
+		expand('alignments/qualities/{file}.{chrom}-qualities.bam', file=['correctedminion'], chrom=chromosomes),
+		expand('plots/{technology}.{chrom}.coverage', chrom=chromosomes, technology=['correctedminion']),
+		expand('plots/{technology}.{chrom}.pdf', chrom=chromosomes, technology=['correctedminion']),
+		expand('plots/{technology}.pdf', chrom=chromosomes, technology=['correctedminion']),
+
+# align corrected nanopore reads
+rule align_corr_ont:
+	input:
+		reads = expand('{filename}', filename=config['data']['correctedminion']),
+		fasta = reference
+	output:
+		'alignments/correctedminion.bam'
+	threads: 20
+	shell:
+		'minimap2 -ax map-ont -t {threads} {input.fasta} {input.reads} | samtools view -bS - | samtools sort - alignments/correctedminion'
+
+# index fasta
+rule bwa_index:
+	input:
+		reference
+	output:
+		reference + '.ann'
+	shell:
+		'bwa index {input}'
+
+# index the bam files
+rule index_bam:
+	input:
+		'{file}.bam'
+	output:
+		'{file}.bam.bai'
+	shell:
+		'samtools index {input}'
+
+# split the BAM by chromosome
+rule split_by_chromosome:
+	input:
+		bam='{file}.bam',
+		bai='{file}.bam.bai'
+	output:
+		'{file}.{chrom}.bam'
+	shell:
+		'samtools view -h {input.bam} {wildcards.chrom} | samtools view -bS -> {output}'
+
+# add default base qualities (freebayes apparently needs them to produce genotypes)
+rule add_base_quals:
+	input:
+		'alignments/{file}.chr{chrom, [0-9]+}.bam'
+	output:
+		'alignments/qualities/{file}.chr{chrom, [0-9]+}-qualities.bam'
+	params:
+		scripts=config['scripts']
+	shell:
+		"samtools view -h {input} | python3 {params.scripts}/add-constant-base-qualities.py | samtools view -Sb -> {output}"
+
+# create .fai
+rule samtools_faidx:
+	input:
+		reference
+	output:
+		reference + '.fai'
+	shell:
+		'samtools faidx {input}'
+
+# compute position-wise coverages
+rule plot_coverage:
+	input:
+		'alignments/{filename}.bam'
+	output:
+		'plots/{filename}.coverage'
+	shell:
+		'samtools depth -a {input} > {output}'
+
+# plot coverages
+rule plot_coverages:
+	input:
+		'plots/{filename}.coverage'
+	output:
+		'plots/{filename}.pdf'
+	params:
+		scripts=config['scripts']
+	shell:
+		'cat {input} | python3 {params.scripts}/plot-coverage.py {output}'
+
+
+
+

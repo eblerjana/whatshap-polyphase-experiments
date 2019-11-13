@@ -1,0 +1,38 @@
+{
+	"data": {
+		"minion": ["20180622_StubS_001_001_complete.fastq", 
+			"20180703_StubS_002_002_complete.fastq",
+			"20180713_Stuberosum_003_003_complete.fastq", 
+			"20180713_Stuberosum_004_004_complete.fastq",
+			"20180717_Stuberosum_005_005_complete.fastq", 
+			"20180717_Stuberosum_006_006_complete.fastq",
+			"20180725_Stuberosum_007_007_complete.fastq", 
+			"20180802_Stuberosum_008_008_complete.fastq",
+			"20180807_Stuberosum_009_009_complete.fastq",
+			"20180808_Stuberosum_010_010_complete.fastq",
+			"20180814_Stuberosum_011_011_complete.fastq",
+			"20180814_Stuberosum_012_012_complete.fastq",
+			"20180822_Stuberosum_013_013_complete.fastq",
+			"20180831_Stuberosum_014_014_complete.fastq",
+			"20180904_Stuberosum_015_015_complete.fastq",
+			"20180913_Stuberosum_016_016_complete.fastq",
+			"20180924_Stuberosum_017_017_complete.fastq",
+			"20180926_Stuberosum_018_018_complete.fastq"
+		],
+		"promethion": ["20181213_Stuberosum_019_019_P_all.fastq"],
+		"illumina": ["Solanum-tuberosum_S1_L001_R1_001.fastq.gz", "Solanum-tuberosum_S1_L001_R2_001.fastq.gz", "Solanum-tuberosum_S1_L002_R1_001.fastq.gz",
+			"Solanum-tuberosum_S1_L002_R2_001.fastq.gz", "Solanum-tuberosum_S1_L003_R1_001.fastq.gz",
+			"Solanum-tuberosum_S1_L003_R2_001.fastq.gz", "Solanum-tuberosum_S1_L004_R1_001.fastq.gz",
+			"Solanum-tuberosum_S1_L004_R2_001.fastq.gz"
+		],
+		"correctedminion": ["/MMCI/TM/scratch/mikko/potato_correction/snake/output/corrected_clipped.fa"]
+	},
+	"reference": "../reference/potato_dm_v404_all_pm_un.fasta",
+	"pairs": {
+		"Solanum-tuberosum_S1_L001" : ["Solanum-tuberosum_S1_L001_R1_001.fastq.gz", "Solanum-tuberosum_S1_L001_R2_001.fastq.gz"],
+		"Solanum-tuberosum_S1_L002" : ["Solanum-tuberosum_S1_L002_R1_001.fastq.gz", "Solanum-tuberosum_S1_L002_R2_001.fastq.gz"],
+		"Solanum-tuberosum_S1_L003" : ["Solanum-tuberosum_S1_L003_R1_001.fastq.gz", "Solanum-tuberosum_S1_L003_R2_001.fastq.gz"],
+		"Solanum-tuberosum_S1_L004" : ["Solanum-tuberosum_S1_L004_R1_001.fastq.gz", "Solanum-tuberosum_S1_L004_R2_001.fastq.gz"]
+	},
+	"scripts": "scripts"
+}

@@ -1,0 +1,173 @@
+configfile:'config.json'
+alignments=config['alignments']
+# after failing to install there, used next command
+whatshap = '/MMCI/TM/scratch/jebler/polyploid_phasing/potato-data/whatshap/whatshap/venv/bin/whatshap'
+# two different versions because polyphase must ignore readnames
+whatshap_haplotag = '/MMCI/TM/scratch/jebler/polyploid_phasing/polyploid-haplotag/whatshap/venv/bin/whatshap'
+snpeff='/MMCI/TM/scratch/jebler/polyploid_phasing/potato-data/snpeff/snpEff/snpEff.jar'
+
+reference=config['reference']
+chromosomes = ['chr01','chr02','chr03','chr04','chr05','chr06','chr07','chr08','chr09','chr10','chr11','chr12','chr00']
+rule all:
+	input:
+		expand('vcf/variants.{chrom}.vcf', chrom=chromosomes),
+		expand('phasing/polyphase/{technology}.{chrom}.polyphase-{mode}.vcf.gz', chrom=chromosomes, technology=['correctedminion'], mode=['verified-genotypes', 'all-genotypes']),
+		expand('genes/stats/{technology}.polyphase-{mode}.tsv', technology=['correctedminion'], mode=['verified-genotypes', 'all-genotypes']),
+		expand('genes/plots/{technology}.polyphase-{mode}-block_lengths.pdf', technology=['correctedminion'], mode=['verified-genotypes', 'all-genotypes']),
+		expand('haplotag/tagged/{technology}.{mode}.tagged.{chrom}.bam.bai', technology=['correctedminion'], mode=['verified-genotypes'], chrom=chromosomes),
+		expand('genes/annotation/{technology}.polyphase-{mode}_annotated.vcf', technology=['correctedminion'], mode=['verified-genotypes'])
+
+# index the bam files
+rule index_bam:
+	input:
+		'{file}.bam'
+	output:
+		'{file}.bam.bai'
+	shell:
+		'samtools index {input}'
+
+# download gene annotations
+rule download_genes:
+	output:
+		'genes/bed/{filename}'.format(filename=config['annotations']['filename'])
+	run:
+		path=config['annotations']['path']
+		shell('wget {path} -O {output}.zip')
+		shell('unzip {output}.zip -d genes/bed/')
+
+# convert gff to bed
+rule gff_to_bed:
+	input:
+		'genes/bed/{filename}'.format(filename=config['annotations']['filename'])
+	output:
+		'genes/bed/all-genes.bed'
+	shell:
+		"awk \'($3 == \"gene\"){{ printf(\"%s\\t%d\\t%d\\n\", $1,$4,$5) }} \' {input} | sed \"s/ST4.03ch/chr/g\" | sortBed -i - > {output}"
+
+# split bed by chromosome
+rule split_bed_by_chromosome:
+	input:
+		'genes/bed/all-genes.bed'
+	output:
+		'genes/regions/all-genes.{chrom}.regions'
+	shell:
+                "mergeBed -i {input} | awk \'($1 == \"{wildcards.chrom}\") {{printf(\"%s:%d-%d\\n\", $1,$2,$3)}}\' > {output}"
+
+# call variants based on corrected reads
+rule call_variants:
+	input:
+		bam=alignments + 'qualities/correctedminion.{chrom}-qualities.bam',
+		bai=alignments + 'qualities/correctedminion.{chrom}-qualities.bam.bai',
+		fasta=reference,
+		fai=reference + '.fai',
+		regions='genes/regions/all-genes.{chrom}.regions'
+	output:
+		'vcf/variants.{chrom}.vcf'
+	log:
+		'vcf/variants.{chrom}.log'
+	benchmark:
+		'vcf/variants.{chrom}.rsrc'
+	params:
+		timeout = 2700, # time in seconds
+		scripts = config['scripts']
+	threads: 16
+	shell:
+		'{params.scripts}/fb-parallel-timeout.sh {input.regions} {threads} {params.timeout} {log}' \
+		' -p 4 --no-indels --no-mnps --no-complex  -f {input.fasta} {input.bam} > {output}'
+
+# run polyphase
+rule polyphase:
+	input:
+		variants='vcf/variants.{chrom}.vcf',
+		bam=alignments + '{technology}.{chrom}.bam',
+		reference=reference
+	output:
+		'phasing/polyphase/{technology}.{chrom}.polyphase-{mode}.vcf.gz'
+	log:
+		'phasing/polyphase/{technology}.{chrom}.polyphase-{mode}.log'	
+	run:
+		validate = '--verify-genotypes' if wildcards.mode == 'verified-genotypes' else ''
+		shell('(time {whatshap} polyphase --ignore-read-groups {validate} -o phasing/polyphase/{wildcards.technology}.{wildcards.chrom}.polyphase-{wildcards.mode}.vcf --reference {input.reference} {input.variants} {input.bam} 4) &> {log}')
+		shell('bgzip phasing/polyphase/{wildcards.technology}.{wildcards.chrom}.polyphase-{wildcards.mode}.vcf')
+		shell('tabix -p vcf {output}')
+
+
+####### evaluate phasing of potato genes #######
+
+# merge all phased vcfs into one (genome wide)
+rule merge_phasing_vcfs:
+	input:
+		expand('phasing/polyphase/{{technology}}.{chrom}.polyphase-{{mode}}.vcf.gz', chrom=chromosomes)
+	output:
+		'genes/polyphase/{technology}.polyphase-{mode}.vcf.gz'
+	run:
+		input_files=" ".join([x for x in input])
+		shell('rtg vcfmerge -o {output} {input_files}')
+
+# get statistics
+rule gene_stats:
+	input:
+		vcf='genes/polyphase/{technology}.polyphase-{mode}.vcf.gz',
+		bed='genes/bed/all-genes.bed'
+	output:
+		tsv='genes/stats/{technology}.polyphase-{mode}.tsv',
+		blocks='genes/stats/{technology}.polyphase-{mode}.blocks'
+	log:
+		'genes/stats/{technology}.polyphase-{mode}.log'
+	shell:
+		'{whatshap} stats --tsv {output.tsv} --block-list {output.blocks} --bed {input.bed} 4 {input.vcf} > {log} 2>&1'
+
+# plot histogram of block length
+rule plot_gene_block_numbers:
+	input:
+		'genes/stats/{technology}.polyphase-{mode}.tsv'
+	output:
+		blocks='genes/plots/{technology}.polyphase-{mode}-block_lengths.pdf',
+		longest='genes/plots/{technology}.polyphase-{mode}-longest_block.pdf'
+	log:
+		'genes/plots/{technology}.polyphase-{mode}.log'
+	params:
+		scripts=config['scripts']
+	shell:
+		'python3 {params.scripts}/plot-phasing-histograms.py {input} --only-intervals -o genes/plots/{wildcards.technology}.polyphase-{wildcards.mode} > {log}'
+
+
+####### tag the reads according to the phasing #######
+
+# add read groups (version of haplotag in polyploid branch still requires read groups)
+# additionally, fix readnames as corrected-reads fasta constains duplicate readnames
+rule add_readgroups:
+	input:
+		bam=alignments + '{technology}.{chrom}.bam',
+		bai=alignments + '{technology}.{chrom}.bam.bai'
+	output:
+		'haplotag/alignments-with-readgroups/{technology}.rg.{chrom}.bam'
+	shell:
+		'samtools view -h {input.bam} | python3 ../../scripts/fix_readnames.py | picard AddOrReplaceReadGroups I=/dev/stdin O={output} VALIDATION_STRINGENCY=LENIENT RGID=sample RGLB=library RGPL=nanopore RGPU=platform RGSM=unknown'
+
+# run haplotag
+rule haplotag:
+	input:
+		bam='haplotag/alignments-with-readgroups/{technology}.rg.{chrom}.bam',
+		bai='haplotag/alignments-with-readgroups/{technology}.rg.{chrom}.bam.bai',
+		vcf='phasing/polyphase/{technology}.{chrom}.polyphase-{mode}.vcf.gz',
+		fasta=reference
+	output:
+		'haplotag/tagged/{technology}.{mode}.tagged.{chrom}.bam'
+	params:
+		ploidy=4
+	shell:
+		'{whatshap_haplotag} haplotag {input.vcf} {input.bam} {params.ploidy} -o {output}'
+
+
+# annotate genes
+rule snpeff_annotate:
+	input:
+		'genes/polyphase/{technology}.polyphase-{mode}.vcf.gz'
+	output:
+		'genes/annotation/{technology}.polyphase-{mode}_annotated.vcf'
+	shell:
+		'java -Xmx4g -jar {snpeff} -v potato {input} > {output}'
+
+
+

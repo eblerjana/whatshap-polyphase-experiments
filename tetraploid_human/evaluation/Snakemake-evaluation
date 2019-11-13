@@ -1,0 +1,93 @@
+configfile:'config.json'
+path_to_reference = config['path_to_reference']
+# results folder
+results='results-paper'
+# path to whatshap
+whatshap = '/local/data/jebler/polyploid-phasing/whatshap/whatshap/venv/bin/whatshap'
+# path to hpop
+hpop = '/local/data/jebler/polyploid-phasing/hpop/H-PoPG-v-0.1.2.jar'
+
+# phasing tools
+methods = ['polyphase_single', 'polyphase_multiple', 'hpop']
+
+rule all:
+	input:
+		expand('{results}/evaluation/simulated-reads/{method}/{method}-polyploid.simulated.chr1.cov{coverage}.{which}.tsv', results=results, coverage=[40,80], method=methods, which=['stats','pair']),
+		expand('{results}/evaluation/real-reads/{method}/{method}-polyploid.real.chr1.cov{coverage}.{which}.tsv', results=results, coverage=[40,80], method=methods, which=['stats', 'pair']),
+
+
+# input data for phasing and evaluation
+def truth_vcf(wildcards):
+	return '../data/vcf/polyploid.chr{chrom}.vcf.gz'.format(chrom=wildcards.chrom)
+
+def input_vcf_unphased(wildcards):
+	return '../data/vcf/polyploid.chr{chrom}.unphased.vcf'.format(chrom=wildcards.chrom)
+
+def phase_bam(wildcards):
+	return '../data/{readtype}-reads/bam/polyploid-{readtype}.chr{chrom}.cov{coverage}.bam'.format(readtype=wildcards.readtype, chrom=wildcards.chrom, coverage=wildcards.coverage)
+
+
+# run polyphase
+rule run_polyphase:
+	input:
+		bam=phase_bam,
+		vcf=input_vcf_unphased,
+		fasta= path_to_reference + 'hg38.chr{chrom}.fa'
+	output:
+		'{results}/phasing/{readtype}-reads/polyphase_{n_blocks}/polyphase_{n_blocks}-{sample}.{readtype}.chr{chrom}.cov{coverage}.vcf'
+	log:
+		'{results}/phasing/{readtype}-reads/polyphase_{n_blocks}/polyphase_{n_blocks}-{sample}.{readtype}.chr{chrom}.cov{coverage}.log'
+	run:
+		ploidy = 4 if wildcards.sample == 'polyploid' else 2
+		blocks = '--block-cut-sensitivity 1' if wildcards.n_blocks == 'single' else ''
+		shell('(time {whatshap} polyphase --ignore-read-groups {blocks} -o {output} --reference {input.fasta} {input.vcf} {input.bam} {ploidy}) &> {log}')
+
+# run hpop
+rule run_hpop:
+	input:
+		bam=phase_bam,
+		vcf=input_vcf_unphased
+	output:
+		'{results}/phasing/{readtype}-reads/hpop/hpop-{sample}.{readtype}.chr{chrom}.cov{coverage}/hpop_solution.txt'
+	resources:
+		gpu=1
+	log:
+		'{results}/phasing/{readtype}-reads/hpop/hpop-{sample}.{readtype}.chr{chrom}.cov{coverage}/hpop_solution.log'
+	run:
+		ploidy = 4 if wildcards.sample == 'polyploid' else 2
+		shell('time (java -jar {hpop} -p {ploidy} -v {input.vcf} -b {input.bam} -o {output}) &> {log}')
+
+# convert hpop output to VCF-format
+rule hpop_to_vcf:
+	input:
+		txt='{results}/phasing/{readtype}-reads/hpop/hpop-{sample}.{readtype}.chr{chrom}.cov{coverage}/hpop_solution.txt',
+		vcf='../data/vcf/polyploid.chr{chrom}.vcf'
+	output:
+		'{results}/phasing/{readtype}-reads/hpop/hpop-{sample}.{readtype}.chr{chrom}.cov{coverage}.vcf'
+	shell:
+		'python3 scripts/hpop2vcf.py {input.txt} {input.vcf} {output}'
+
+rule evaluate:
+	input:
+		true=truth_vcf,
+		phasing='{results}/phasing/{readtype}-reads/{method}/{method}-{sample}.{readtype}.chr{chrom}.cov{coverage}.vcf'
+	output:
+		tsv='{results}/evaluation/{readtype}-reads/{method}/{method}-{sample}.{readtype}.chr{chrom}.cov{coverage}.pair.tsv',
+		pdf='{results}/evaluation/{readtype}-reads/{method}/{method}-{sample}.{readtype}.chr{chrom}.cov{coverage}.blocklengths.pdf'
+	log:
+		'{results}/evaluation/{readtype}-reads/{method}/{method}-{sample}.{readtype}.chr{chrom}.cov{coverage}.pair.log'
+	run:
+		ploidy = 4 if wildcards.sample == 'polyploid' else 2
+		shell('{whatshap} compare {ploidy} {input.true} {input.phasing} --plot-blocksizes {output.pdf} --tsv-pairwise {output.tsv} > {log}')
+
+rule stats:
+	input:
+		phasing='{results}/phasing/{readtype}-reads/{method}/{method}-{sample}.{readtype}.chr{chrom}.cov{coverage}.vcf',
+		lengths='chromosome-lengths.txt'
+	output:
+		tsv='{results}/evaluation/{readtype}-reads/{method}/{method}-{sample}.{readtype}.chr{chrom}.cov{coverage}.stats.tsv'
+	log:
+		'{results}/evaluation/{readtype}-reads/{method}/{method}-{sample}.{readtype}.chr{chrom}.cov{coverage}.stats.log'
+	run:
+		ploidy = 4 if wildcards.sample == 'polyploid' else 2
+		shell('{whatshap} stats {ploidy} {input.phasing} --chr-lengths {input.lengths} --tsv {output} > {log}')

@@ -10,11 +10,20 @@ rule all:
 		expand('plots/{technology}.{chrom}.pdf', chrom=chromosomes, technology=['correctedminion']),
 		expand('plots/{technology}.pdf', chrom=chromosomes, technology=['correctedminion']),
 
+rule download_reference:
+	output:
+		'reference/{filename}'.format(filename=config['reference']['filename'])
+	params:
+		path=config['reference']['path']
+	run:
+		shell('wget {params.path} -O {output}.zip')
+		shell('unzip {output.zip} -d reference/')
+
 # align corrected nanopore reads
 rule align_corr_ont:
 	input:
 		reads = expand('{filename}', filename=config['data']['correctedminion']),
-		fasta = reference
+		fasta = 'reference/{filename}'.format(filename=config['reference']['filename'])
 	output:
 		'alignments/correctedminion.bam'
 	threads: 20
@@ -24,9 +33,9 @@ rule align_corr_ont:
 # index fasta
 rule bwa_index:
 	input:
-		reference
+		'reference/{filename}'.format(filename=config['reference']['filename'])
 	output:
-		reference + '.ann'
+		'reference/{filename}'.format(filename=config['reference']['filename']) + '.ann'
 	shell:
 		'bwa index {input}'
 
@@ -63,9 +72,9 @@ rule add_base_quals:
 # create .fai
 rule samtools_faidx:
 	input:
-		reference
+		'reference/{filename}'.format(filename=config['reference']['filename'])
 	output:
-		reference + '.fai'
+		'reference/{filename}'.format(filename=config['reference']['filename']) + '.fai'
 	shell:
 		'samtools faidx {input}'
 

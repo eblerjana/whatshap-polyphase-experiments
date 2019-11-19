@@ -27,7 +27,10 @@
 		],
 		"correctedminion": ["/MMCI/TM/scratch/mikko/potato_correction/snake/output/corrected_clipped.fa"]
 	},
-	"reference": "../reference/potato_dm_v404_all_pm_un.fasta",
+	"reference": {
+			"filename": "potato_dm_v404_all_pm_un.fasta",
+			"path": "http://solanaceae.plantbiology.msu.edu/data/potato_dm_v404_all_pm_un.fasta.zip"
+	},
 	"pairs": {
 		"Solanum-tuberosum_S1_L001" : ["Solanum-tuberosum_S1_L001_R1_001.fastq.gz", "Solanum-tuberosum_S1_L001_R2_001.fastq.gz"],
 		"Solanum-tuberosum_S1_L002" : ["Solanum-tuberosum_S1_L002_R1_001.fastq.gz", "Solanum-tuberosum_S1_L002_R2_001.fastq.gz"],

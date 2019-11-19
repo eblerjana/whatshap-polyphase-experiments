@@ -1,9 +1,11 @@
 {
 	"alignments" : "../alignments/",
-	"reference": "../../reference/potato_dm_v404_all_pm_un.fasta",
+	"reference": "../reference/potato_dm_v404_all_pm_un.fasta",
 	"annotations": {
 		"filename": "PGSC_DM_V403_genes.gff",
 		"path": "http://solanaceae.plantbiology.msu.edu/data/PGSC_DM_V403_genes.gff.zip"
 	},
-	"scripts": "../../scripts"
+	"scripts": "../../scripts",
+	"whatshap": "",
+	"snpeff" : ""
 }

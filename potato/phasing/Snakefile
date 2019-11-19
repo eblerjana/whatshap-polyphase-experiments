@@ -1,13 +1,11 @@
 configfile:'config.json'
 alignments=config['alignments']
-# after failing to install there, used next command
-whatshap = '/MMCI/TM/scratch/jebler/polyploid_phasing/potato-data/whatshap/whatshap/venv/bin/whatshap'
-# two different versions because polyphase must ignore readnames
-whatshap_haplotag = '/MMCI/TM/scratch/jebler/polyploid_phasing/polyploid-haplotag/whatshap/venv/bin/whatshap'
-snpeff='/MMCI/TM/scratch/jebler/polyploid_phasing/potato-data/snpeff/snpEff/snpEff.jar'
-
+whatshap = config['whatshap']
+snpeff = config['snpeff']
 reference=config['reference']
+
 chromosomes = ['chr01','chr02','chr03','chr04','chr05','chr06','chr07','chr08','chr09','chr10','chr11','chr12','chr00']
+
 rule all:
 	input:
 		expand('vcf/variants.{chrom}.vcf', chrom=chromosomes),
@@ -157,7 +155,7 @@ rule haplotag:
 	params:
 		ploidy=4
 	shell:
-		'{whatshap_haplotag} haplotag {input.vcf} {input.bam} {params.ploidy} -o {output}'
+		'{whatshap} haplotag {input.vcf} {input.bam} {params.ploidy} -o {output}'
 
 
 # annotate genes

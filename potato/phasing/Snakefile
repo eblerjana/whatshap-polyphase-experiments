@@ -13,7 +13,9 @@ rule all:
 		expand('genes/stats/{technology}.polyphase-{mode}.tsv', technology=['correctedminion'], mode=['verified-genotypes', 'all-genotypes']),
 		expand('genes/plots/{technology}.polyphase-{mode}-block_lengths.pdf', technology=['correctedminion'], mode=['verified-genotypes', 'all-genotypes']),
 		expand('haplotag/tagged/{technology}.{mode}.tagged.{chrom}.bam.bai', technology=['correctedminion'], mode=['verified-genotypes'], chrom=chromosomes),
-		expand('genes/annotation/{technology}.polyphase-{mode}_annotated.vcf', technology=['correctedminion'], mode=['verified-genotypes'])
+		expand('genes/annotation/{technology}.polyphase-{mode}_annotated.vcf', technology=['correctedminion'], mode=['verified-genotypes']),
+		expand('assembly/split/{technology}.{mode}.{chrom}.h{hap}.bam', technology=['correctedminion'], mode=['verified-genotypes'], chrom=['chr04'], hap=[1,2,3,4])
+
 
 # index the bam files
 rule index_bam:
@@ -168,4 +170,39 @@ rule snpeff_annotate:
 		'java -Xmx4g -jar {snpeff} -v potato {input} > {output}'
 
 
+######## Assembly of Frigida gene #########
+
+rule tag_reads_of_longest_block:
+	input:
+		vcf='phasing/polyphase/{technology}.{chrom}.polyphase-{mode}.vcf.gz',
+		bam='haplotag/alignments-with-readgroups/{technology}.rg.{chrom}.bam',
+		reference=reference
+	output:
+		vcf='assembly/polyphase/{technology}.{chrom}.polyphase-{mode}-frigida.vcf.gz',
+		tsv='assembly/haplotag/{technology}.{mode}.tagged.{chrom}-frigida.tsv',
+		bam='assembly/haplotag/{technology}.{mode}.tagged.{chrom}-frigida.bam'
+	params:
+		region="chr04:61677628-61680091",
+		ploidy=4
+	log:
+		'assembly/haplotag/{technology}.{mode}.tagged.{chrom}-frigida.log'
+	run:
+		shell("bcftools view {input.vcf} {params.region} | python3 ../../scripts/largest-block-in-region.py {params.region} | bgzip > {output.vcf}")
+		shell("tabix -p vcf {output.vcf}")
+		shell("{whatshap_haplotag} haplotag {output.vcf} {input.bam} --reference {input.reference}  --ploidy {params.ploidy} --output-haplotag-list {output.tsv} -o {output.bam} &> {log}")
+
+
+rule split_bam:
+	input:
+		bam='haplotag/alignments-with-readgroups/{technology}.rg.{chrom}.bam',
+		tsv='assembly/haplotag/{technology}.{mode}.tagged.{chrom}-frigida.tsv'
+	output:
+		bamh1='assembly/split/{technology}.{mode}.{chrom}.h1.bam',
+		bamh2='assembly/split/{technology}.{mode}.{chrom}.h2.bam',
+		bamh3='assembly/split/{technology}.{mode}.{chrom}.h3.bam',
+		bamh4='assembly/split/{technology}.{mode}.{chrom}.h4.bam',
+	log:
+		'assembly/split/{technology}.{mode}.{chrom}.log'
+	shell:
+		"{whatshap_haplotag} split {input.bam} {input.tsv} --output-h1 {output.bamh1} --output-h2 {output.bamh2} --output-h3 {output.bamh3} --output-h4 {output.bamh4} &> {log}"
 

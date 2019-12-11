@@ -14,7 +14,9 @@ rule all:
 		expand('genes/plots/{technology}.polyphase-{mode}-block_lengths.pdf', technology=['correctedminion'], mode=['verified-genotypes', 'all-genotypes']),
 		expand('haplotag/tagged/{technology}.{mode}.tagged.{chrom}.bam.bai', technology=['correctedminion'], mode=['verified-genotypes'], chrom=chromosomes),
 		expand('genes/annotation/{technology}.polyphase-{mode}_annotated.vcf', technology=['correctedminion'], mode=['verified-genotypes']),
-		expand('assembly/split/{technology}.{mode}.{chrom}.h{hap}.bam', technology=['correctedminion'], mode=['verified-genotypes'], chrom=['chr04'], hap=[1,2,3,4])
+		expand('assembly/split/{technology}.{mode}.{chrom}.h{hap}.bam', technology=['correctedminion'], mode=['verified-genotypes'], chrom=['chr04'], hap=[1,2,3,4]),
+		expand('assembly/contigs/{technology}.{mode}.{chrom}.wtdbg2-h{hap}.raw.fa', technology=['correctedminion'], mode=['verified-genotypes'], chrom=['chr04'], hap=[1,2,3,4]),
+		expand('assembly/contigs/{technology}.{mode}.{chrom}.wtdbg2-h{hap}.raw.bam.bai', technology=['correctedminion'], mode=['verified-genotypes'], chrom=['chr04'], hap=[1,2,3,4])
 
 
 # index the bam files
@@ -205,4 +207,24 @@ rule split_bam:
 		'assembly/split/{technology}.{mode}.{chrom}.log'
 	shell:
 		"{whatshap_haplotag} split {input.bam} {input.tsv} --output-h1 {output.bamh1} --output-h2 {output.bamh2} --output-h3 {output.bamh3} --output-h4 {output.bamh4} &> {log}"
+
+rule assemble_haplotype:
+	input:
+		'assembly/split/{technology}.{mode}.{chrom}.h{hap}.bam'
+	output:
+		'assembly/contigs/{technology}.{mode}.{chrom}.wtdbg2-h{hap}.raw.fa'
+	run:
+		shell("samtools fastq {input} > assembly/contigs/h{wildcards.hap}.fastq")
+		shell("wtdbg2 -x ccs -g 1m -t 4 -i assembly/contigs/h{wildcards.hap}.fastq -fo assembly/contigs/wtdbg2-h{wildcards.hap}")
+		shell("wtpoa-cns -i assembly/contigs/wtdbg2-h{wildcards.hap}.ctg.lay.gz -fo {output}")
+		
+rule align_contigs:
+	input:
+		contigs='assembly/contigs/{technology}.{mode}.{chrom}.wtdbg2-h{hap}.raw.fa',
+		reference=reference
+	output:
+		'assembly/contigs/{technology}.{mode}.{chrom}.wtdbg2-h{hap}.raw.bam'
+	threads: 30
+	shell:
+		"minimap2 -ax asm5 --cs -t {threads} {input.reference} {input.contigs} | samtools view -bS - | samtools sort -o {output}"
 

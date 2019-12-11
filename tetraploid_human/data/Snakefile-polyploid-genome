@@ -34,7 +34,7 @@ whatshap='/MMCI/TM/scratch/jebler/whatshap/whatshap/venv/bin/whatshap'
 rule all:
 	input:
 		expand('vcf/polyploid.chr{chrom}.vcf', chrom=chromosomes, cov=coverages),
-		expand('vcf/polyploid.chr{chrom}.unphased.vcf.gz', chrom=chromosomes),
+		expand('vcf/polyploid.chr{chrom}.unphased.vcf', chrom=chromosomes),
 		expand('simulated-reads/bam/polyploid-simulated.chr{chrom}.cov{cov}.bam', chrom=chromosomes, cov=coverages),
 		expand('real-reads/bam/polyploid-real.chr{chrom}.cov{cov}.bam', chrom=chromosomes, cov=[40, 80])
 
@@ -279,9 +279,9 @@ rule remove_phase_information:
 	input:
 		'vcf/polyploid.chr{chrom}.vcf'
 	output:
-		'vcf/polyploid.chr{chrom}.unphased.vcf.gz'
+		'vcf/polyploid.chr{chrom}.unphased.vcf'
 	run:
-		shell('sed -e \'s#|#/#g\' {input} | rtg vcfsubset --remove-format=PS -i - -o {output}')
+		shell('sed -e \'s#|#/#g\' {input} | rtg vcfsubset --remove-format=PS --no-gzip -i - -o {output}')
 
 
 ########## create equivalent real datasets by merging diploid BAMs ##########

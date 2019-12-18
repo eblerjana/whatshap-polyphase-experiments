@@ -8,7 +8,7 @@ whatshap = config['whatshap']
 hpop = config['hpop']
 
 # phasing tools
-methods = ['polyphase_single', 'polyphase_multiple', 'hpop']
+methods = ['polyphase_sens0', 'polyphase_sens1', 'polyphase_sens2', 'polyphase_sens3', 'polyphase_sens4', 'polyphase_sens5', 'hpop']
 
 rule all:
 	input:
@@ -39,7 +39,7 @@ rule run_polyphase:
 		'{results}/phasing/{readtype}-reads/polyphase_{n_blocks}/polyphase_{n_blocks}-{sample}.{readtype}.chr{chrom}.cov{coverage}.log'
 	run:
 		ploidy = 4 if wildcards.sample == 'polyploid' else 2
-		blocks = '--block-cut-sensitivity 0' if wildcards.n_blocks == 'single' else ''
+		blocks = '--block-cut-sensitivity {}'.format(wildcards.n_blocks[-1])
 		shell('(time {whatshap} polyphase --ignore-read-groups {blocks} -o {output} --reference {input.fasta} {input.vcf} {input.bam} {ploidy}) &> {log}')
 
 # run hpop

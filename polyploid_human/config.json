@@ -1,0 +1,6 @@
+{
+	"path_to_reference": "/mnt/store/Scratch/polyploid-human/chr1/fasta/",
+	"path_to_data": "/mnt/store/Scratch/polyploid-human/chr1/",
+	"hpop" : "../hpop/H-PoPG-v-0.1.2.jar",
+	"whatshap" : "whatshap"
+}

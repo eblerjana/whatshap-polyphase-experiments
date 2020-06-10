@@ -1,0 +1,9 @@
+{
+    'path_reference_fastq':'/gpfs/project/projects/polyploid_phasing/SRR3658380.fastq',
+    'path_diploid_bams':'/gpfs/project/projects/polyploid_phasing/real_reads-diploid/',
+    'whatshap':'whatshap',
+    'chromosomes':[1],
+    'coverages':[48,96],
+    'dataset':'hexaploid',
+    'readtypes':['real']
+}

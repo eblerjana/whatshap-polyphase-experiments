@@ -1,0 +1,53 @@
+## given hgsvc trio phased vcfs, create artificial polyploid vcf 
+
+configfile:'config.json'
+diploid_bams = config['path_diploid_bams']
+reference_fastq = config['path_reference_fastq']
+
+import os
+import pysam
+
+# whatshap
+whatshap = config['whatshap']
+
+# coverages
+raw_coverages = config['coverages']
+coverages = [int(6*c/5) for c in raw_coverages]
+
+# chromosomes
+chromosomes = config['chromosomes']
+
+# samples to be used for simulation
+sample_names = ['HG00514', 'NA19240', 'HG00733']
+
+# read types
+readtypes = config['readtypes']
+
+samples = {
+	'SH032': ['HG00512', 'HG00513', 'HG00514'],
+	'Y117': ['NA19239', 'NA19238', 'NA19240'],
+	'PR05': ['HG00731', 'HG00732', 'HG00733']
+}
+
+sample2fam = {}
+for fam, sample_list in samples.items():
+	for sample in sample_list:
+		sample2fam[sample] = fam
+
+rule all:
+	input:
+		expand('vcf/pentaploid.chr{chrom}.vcf', chrom=chromosomes),
+		expand('vcf/pentaploid.chr{chrom}.unphased.vcf.gz', chrom=chromosomes),
+		expand('{readtype}-reads/bam/pentaploid-{readtype}.chr{chrom}.cov{cov}.bam', chrom=chromosomes, cov=coverages, readtype=readtypes),
+
+rule downsample_simulated_bam:
+	input:
+		'simulated-reads/bam/hexaploid-{readtype}.chr{chrom}.cov{cov}.bam'
+	output:
+		'simulated-reads/bam/pentaploid-{readtype}.chr'+str(int(5*int({chrom})/6))+'.cov{cov}.bam'
+	run:
+		sample = sample_names[0]+"_HAP1"
+		shell('samtools view -h {input} | grep -v {sample} | samtools view -b > {output}')
+		shell('samtools index {output}')
+
+# todo: VCF and real reads

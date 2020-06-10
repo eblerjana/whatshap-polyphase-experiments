@@ -9,90 +9,93 @@ whatshap = config['whatshap']
 hpop = config['hpop']
 
 # samples
-samples = ['tetraploid', 'hexaploid']
+samples = config['samples']
+#samples = ['tetraploid', 'pentaploid', 'hexaploid']
 
 # phasing tools
-methods = ['polyphase_sens1', 'polyphase_sens2', 'polyphase_sens3', 'polyphase_sens4', 'polyphase_sens5', 'hpop']
-#methods = ['polyphase_sens0']
+methods = config['methods']
+#methods = ['polyphase_sens0', 'polyphase_sens1', 'polyphase_sens2', 'polyphase_sens3', 'polyphase_sens4', 'hpop']
+
+sample_to_ploidy = {'tetraploid':4, 'pentaploid':5, 'hexaploid':6}
 
 rule all:
-	input:
-		expand('{results}/evaluation/simulated-reads/{method}/{method}-{sample}.simulated.chr1.cov{coverage}.{which}.tsv', results=results, sample=samples, coverage=[40,80], method=methods, which=['stats','pair']),
-		expand('{results}/evaluation/real-reads/{method}/{method}-{sample}.real.chr1.cov{coverage}.{which}.tsv', results=results, sample=samples, coverage=[40,80], method=methods, which=['stats', 'pair']),
+    input:
+        expand('{results}/evaluation/simulated-reads/{method}/{method}-{sample}.simulated.chr1.cov{coverage}.{which}.tsv', results=results, sample=samples, coverage=[40,80], method=methods, which=['stats','pair']),
+        expand('{results}/evaluation/real-reads/{method}/{method}-{sample}.real.chr1.cov{coverage}.{which}.tsv', results=results, sample=samples, coverage=[40,80], method=methods, which=['stats', 'pair']),
 
 
 # input data for phasing and evaluation
 def truth_vcf(wildcards):
-	return path_to_data+'vcf/{sample}.chr{chrom}.vcf.gz'.format(sample=wildcards.sample, chrom=wildcards.chrom)
+    return path_to_data+'vcf/{sample}.chr{chrom}.vcf.gz'.format(sample=wildcards.sample, chrom=wildcards.chrom)
 
 def input_vcf_unphased(wildcards):
-	return path_to_data+'vcf/{sample}.chr{chrom}.unphased.vcf'.format(sample=wildcards.sample, chrom=wildcards.chrom)
+    return path_to_data+'vcf/{sample}.chr{chrom}.vcf'.format(sample=wildcards.sample, chrom=wildcards.chrom)
 
 def phase_bam(wildcards):
-	return path_to_data+'{readtype}-reads/bam/{sample}-{readtype}.chr{chrom}.cov{coverage}.bam'.format(readtype=wildcards.readtype, sample=wildcards.sample, chrom=wildcards.chrom, coverage=wildcards.coverage)
+    return path_to_data+'{readtype}-reads/bam/{sample}-{readtype}.chr{chrom}.cov{coverage}.bam'.format(readtype=wildcards.readtype, sample=wildcards.sample, chrom=wildcards.chrom, coverage=wildcards.coverage)
 
 
 # run polyphase
 rule run_polyphase:
-	input:
-		bam=phase_bam,
-		vcf=input_vcf_unphased,
-		fasta= path_to_reference + 'hg38.chr{chrom}.fa'
-	output:
-		'{results}/phasing/{readtype}-reads/polyphase_{method}/polyphase_{method}-{sample}.{readtype}.chr{chrom}.cov{coverage}.vcf'
-	log:
-		'{results}/phasing/{readtype}-reads/polyphase_{method}/polyphase_{method}-{sample}.{readtype}.chr{chrom}.cov{coverage}.log'
-	run:
-		ploidy = (6 if wildcards.sample == 'hexaploid' else 4) if wildcards.sample == 'tetraploid' else 2
-		sensitivity = wildcards.method[-1]
-		shell('(time {whatshap} polyphase --ignore-read-groups -B {sensitivity} -o {output} --reference {input.fasta} {input.vcf} {input.bam} -p {ploidy}) &> {log}')
+    input:
+        bam=phase_bam,
+        vcf=input_vcf_unphased,
+        fasta= path_to_reference + 'hg38.chr{chrom}.fa'
+    output:
+        '{results}/phasing/{readtype}-reads/polyphase_{method}/polyphase_{method}-{sample}.{readtype}.chr{chrom}.cov{coverage}.vcf'
+    log:
+        '{results}/phasing/{readtype}-reads/polyphase_{method}/polyphase_{method}-{sample}.{readtype}.chr{chrom}.cov{coverage}.log'
+    run:
+        ploidy = sample_to_ploidy[wildcards.sample] if wildcards.sample in sample_to_ploidy else 2
+        sensitivity = wildcards.method[-1]
+        shell('(time {whatshap} polyphase --ignore-read-groups -B {sensitivity} -o {output} --reference {input.fasta} {input.vcf} {input.bam} -p {ploidy}) &> {log}')
 
 # run hpop
 rule run_hpop:
-	input:
-		bam=phase_bam,
-		vcf=input_vcf_unphased
-	output:
-		'{results}/phasing/{readtype}-reads/hpop/hpop-{sample}.{readtype}.chr{chrom}.cov{coverage}/hpop_solution.txt'
-	resources:
-		gpu=1
-	log:
-		'{results}/phasing/{readtype}-reads/hpop/hpop-{sample}.{readtype}.chr{chrom}.cov{coverage}/hpop_solution.log'
-	run:
-		ploidy = (6 if wildcards.sample == 'hexaploid' else 4) if wildcards.sample == 'tetraploid' else 2
-		shell('time (java -jar {hpop} -p {ploidy} -v {input.vcf} -b {input.bam} -o {output}) &> {log}')
+    input:
+        bam=phase_bam,
+        vcf=input_vcf_unphased
+    output:
+        '{results}/phasing/{readtype}-reads/hpop/hpop-{sample}.{readtype}.chr{chrom}.cov{coverage}/hpop_solution.txt'
+    resources:
+        gpu=1
+    log:
+        '{results}/phasing/{readtype}-reads/hpop/hpop-{sample}.{readtype}.chr{chrom}.cov{coverage}/hpop_solution.log'
+    run:
+        ploidy = sample_to_ploidy[wildcards.sample] if wildcards.sample in sample_to_ploidy else 2
+        shell('time (java -jar {hpop} -p {ploidy} -v {input.vcf} -b {input.bam} -o {output}) &> {log}')
 
 # convert hpop output to VCF-format
 rule hpop_to_vcf:
-	input:
-		txt='{results}/phasing/{readtype}-reads/hpop/hpop-{sample}.{readtype}.chr{chrom}.cov{coverage}/hpop_solution.txt',
-		vcf=path_to_data+'vcf/{sample}.chr{chrom}.vcf'
-	output:
-		'{results}/phasing/{readtype}-reads/hpop/hpop-{sample}.{readtype}.chr{chrom}.cov{coverage}.vcf'
-	shell:
-		'python3 scripts/hpop2vcf.py {input.txt} {input.vcf} {output}'
+    input:
+        txt='{results}/phasing/{readtype}-reads/hpop/hpop-{sample}.{readtype}.chr{chrom}.cov{coverage}/hpop_solution.txt',
+        vcf=path_to_data+'vcf/{sample}.chr{chrom}.vcf'
+    output:
+        '{results}/phasing/{readtype}-reads/hpop/hpop-{sample}.{readtype}.chr{chrom}.cov{coverage}.vcf'
+    shell:
+        'python3 scripts/hpop2vcf.py {input.txt} {input.vcf} {output}'
 
 rule evaluate:
-	input:
-		true=truth_vcf,
-		phasing='{results}/phasing/{readtype}-reads/{method}/{method}-{sample}.{readtype}.chr{chrom}.cov{coverage}.vcf'
-	output:
-		tsv='{results}/evaluation/{readtype}-reads/{method}/{method}-{sample}.{readtype}.chr{chrom}.cov{coverage}.pair.tsv',
-		pdf='{results}/evaluation/{readtype}-reads/{method}/{method}-{sample}.{readtype}.chr{chrom}.cov{coverage}.blocklengths.pdf'
-	log:
-		'{results}/evaluation/{readtype}-reads/{method}/{method}-{sample}.{readtype}.chr{chrom}.cov{coverage}.pair.log'
-	run:
-		ploidy = (6 if wildcards.sample == 'hexaploid' else 4) if wildcards.sample == 'tetraploid' else 2
-		shell('{whatshap} compare -p {ploidy} {input.true} {input.phasing} --plot-blocksizes {output.pdf} --tsv-pairwise {output.tsv} > {log}')
+    input:
+        true=truth_vcf,
+        phasing='{results}/phasing/{readtype}-reads/{method}/{method}-{sample}.{readtype}.chr{chrom}.cov{coverage}.vcf'
+    output:
+        tsv='{results}/evaluation/{readtype}-reads/{method}/{method}-{sample}.{readtype}.chr{chrom}.cov{coverage}.pair.tsv',
+        pdf='{results}/evaluation/{readtype}-reads/{method}/{method}-{sample}.{readtype}.chr{chrom}.cov{coverage}.blocklengths.pdf'
+    log:
+        '{results}/evaluation/{readtype}-reads/{method}/{method}-{sample}.{readtype}.chr{chrom}.cov{coverage}.pair.log'
+    run:
+        ploidy = sample_to_ploidy[wildcards.sample] if wildcards.sample in sample_to_ploidy else 2
+        shell('{whatshap} compare -p {ploidy} {input.true} {input.phasing} --plot-blocksizes {output.pdf} --tsv-pairwise {output.tsv} > {log}')
 
 rule stats:
-	input:
-		phasing='{results}/phasing/{readtype}-reads/{method}/{method}-{sample}.{readtype}.chr{chrom}.cov{coverage}.vcf',
-		lengths='chromosome-lengths.txt'
-	output:
-		tsv='{results}/evaluation/{readtype}-reads/{method}/{method}-{sample}.{readtype}.chr{chrom}.cov{coverage}.stats.tsv'
-	log:
-		'{results}/evaluation/{readtype}-reads/{method}/{method}-{sample}.{readtype}.chr{chrom}.cov{coverage}.stats.log'
-	run:
-		ploidy = (6 if wildcards.sample == 'hexaploid' else 4) if wildcards.sample == 'tetraploid' else 2
-		shell('{whatshap} stats {input.phasing} --chr-lengths {input.lengths} --tsv {output} > {log}')
+    input:
+        phasing='{results}/phasing/{readtype}-reads/{method}/{method}-{sample}.{readtype}.chr{chrom}.cov{coverage}.vcf',
+        lengths='chromosome-lengths.txt'
+    output:
+        tsv='{results}/evaluation/{readtype}-reads/{method}/{method}-{sample}.{readtype}.chr{chrom}.cov{coverage}.stats.tsv'
+    log:
+        '{results}/evaluation/{readtype}-reads/{method}/{method}-{sample}.{readtype}.chr{chrom}.cov{coverage}.stats.log'
+    run:
+        ploidy = sample_to_ploidy[wildcards.sample] if wildcards.sample in sample_to_ploidy else 2
+        shell('{whatshap} stats {input.phasing} --chr-lengths {input.lengths} --tsv {output} > {log}')

@@ -1,6 +1,8 @@
 {
-	"path_to_reference": "/mnt/store/Scratch/polyploid-human/chr1/fasta/",
-	"path_to_data": "/mnt/store/Scratch/polyploid-human/chr1/",
-	"hpop" : "../hpop/H-PoPG-v-0.1.2.jar",
-	"whatshap" : "whatshap"
+	"path_to_reference":"/media/sven/BACKUP/Storage/Uni/polyploid-human/chr1/fasta/",
+	"path_to_data":"/media/sven/BACKUP/Storage/Uni/polyploid-human/chr1/",
+	"hpop":"../hpop/H-PoPG-v-0.1.2.jar",
+	"whatshap":"whatshap",
+	"samples":["tetraploid","pentaploid","hexaploid"],
+	"methods":["polyphase_sens1","polyphase_sens2","polyphase_sens3","polyphase_sens4","hpop"]
 }

@@ -16,12 +16,15 @@ samples = config['samples']
 methods = config['methods']
 #methods = ['polyphase_sens0', 'polyphase_sens1', 'polyphase_sens2', 'polyphase_sens3', 'polyphase_sens4', 'hpop']
 
+# read types
+readtypes = config['readtypes']
+
 sample_to_ploidy = {'tetraploid':4, 'pentaploid':5, 'hexaploid':6}
 
 rule all:
     input:
-        expand('{results}/evaluation/simulated-reads/{method}/{method}-{sample}.simulated.chr1.cov{coverage}.{which}.tsv', results=results, sample=samples, coverage=[40,80], method=methods, which=['stats','pair']),
-        expand('{results}/evaluation/real-reads/{method}/{method}-{sample}.real.chr1.cov{coverage}.{which}.tsv', results=results, sample=samples, coverage=[40,80], method=methods, which=['stats', 'pair']),
+        expand('{results}/evaluation/{readtype}-reads/{method}/{method}-{sample}.{readtype}.chr1.cov{coverage}.{which}.tsv', results=results, sample=samples, coverage=[40,80], method=methods, readtype=readtypes, which=['stats','pair']),
+        expand('{results}/evaluation/{readtype}-reads/{method}/{method}-{sample}.{readtype}.chr1.cov{coverage}.{which}.tsv', results=results, sample=samples, coverage=[40,80], method=methods, readtype=readtypes, which=['stats', 'pair']),
 
 
 # input data for phasing and evaluation

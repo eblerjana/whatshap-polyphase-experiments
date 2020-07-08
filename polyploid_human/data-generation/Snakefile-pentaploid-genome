@@ -1,6 +1,6 @@
 ## given hgsvc trio phased vcfs, create artificial polyploid vcf 
 
-configfile:'config.json'
+configfile:'config-penta.json'
 diploid_bams = config['path_diploid_bams']
 reference_fastq = config['path_reference_fastq']
 
@@ -37,14 +37,14 @@ for fam, sample_list in samples.items():
 rule all:
 	input:
 		expand('vcf/pentaploid.chr{chrom}.vcf', chrom=chromosomes),
-		expand('vcf/pentaploid.chr{chrom}.unphased.vcf.gz', chrom=chromosomes),
+		expand('vcf/pentaploid.chr{chrom}.biallelic-unphased.vcf.gz', chrom=chromosomes),
 		expand('{readtype}-reads/bam/pentaploid-{readtype}.chr{chrom}.cov{cov}.bam', chrom=chromosomes, cov=coverages, readtype=readtypes),
 
 rule downsample_simulated_bam:
 	input:
 		'simulated-reads/bam/hexaploid-{readtype}.chr{chrom}.cov{cov}.bam'
 	output:
-		'simulated-reads/bam/pentaploid-{readtype}.chr'+str(int(5*int({chrom})/6))+'.cov{cov}.bam'
+		'simulated-reads/bam/pentaploid-{readtype}.chr{chrom}.cov'+str(int(5*int({cov})/6))+'.bam'
 	run:
 		sample = sample_names[0]+"_HAP1"
 		shell('samtools view -h {input} | grep -v {sample} | samtools view -b > {output}')

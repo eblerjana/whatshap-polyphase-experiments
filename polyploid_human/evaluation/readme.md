@@ -21,3 +21,9 @@ Leave out the results for real reads, because we did not generate them.
 "samples":["pentaploid"],
 "methods":["polyphase_sens1","polyphase_sens4","hpop"]
 "readtypes":["simulated"]
+
+## Snakemake command
+
+Instead of running all configurations individually, there is a snakemake target called 'allinone', which was all the above configs hardcoded. The pipeline was run using the command:
+
+snakemake allinone --snakefile Snakemake-evaluation -k --cores 24 --resources mem_mb=64000 --resources hpop=1

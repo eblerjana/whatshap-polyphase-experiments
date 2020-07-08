@@ -1,8 +1,9 @@
 {
-	"path_to_reference":"/mnt/store/Scratch/polyploid-human/chr1/fasta/",
-	"path_to_data":"/mnt/store/Scratch/polyploid-human/chr1/",
-	"hpop":"../hpop/H-PoPG-v-0.1.2.jar",
+	"path_to_reference":"/gpfs/project/projects/polyploid_phasing/fasta/",
+	"path_to_data":"/gpfs/project/projects/polyploid_phasing/",
+	"hpop":"../hpop/H-PoPG-v-0.2.0.jar",
 	"whatshap":"whatshap",
+	"hapcompass" : "../../../hapcompass/hapcompass_v0.8.2/hapcompass.jar",
 	"samples":["tetraploid","hexaploid"],
 	"methods":["polyphase_sens1","polyphase_sens4","hpop"],
 	"readtypes":["simulated","real"]

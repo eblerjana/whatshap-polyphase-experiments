@@ -1,8 +1,9 @@
 ## given hgsvc trio phased vcfs, create artificial polyploid vcf 
 
-configfile:'config.json'
+configfile:'config-tetra.json'
 diploid_bams = config['path_diploid_bams']
 reference_fastq = config['path_reference_fastq']
+path_trio_vcfs = config['path_to_trio_vcfs']
 
 import os
 import pysam
@@ -20,7 +21,7 @@ chromosomes = config['chromosomes']
 dataset = config['dataset']
 
 # samples to be used for simulation
-sample_names = ['HG00514', 'NA19240', 'HG00733'] if dataset == 'hexaploid' else 'tetraploid'
+sample_names = ['HG00514', 'NA19240', 'HG00733'] if dataset == 'hexaploid' else ['HG00514', 'NA19240']
 
 # read types
 readtypes = config['readtypes']
@@ -39,7 +40,7 @@ for fam, sample_list in samples.items():
 rule all:
 	input:
 		expand('vcf/{dataset}.chr{chrom}.vcf', dataset=dataset, chrom=chromosomes),
-		expand('vcf/{dataset}.chr{chrom}.unphased.vcf.gz', dataset=dataset, chrom=chromosomes),
+		expand('vcf/{dataset}.chr{chrom}.biallelic-unphased.vcf.gz', dataset=dataset, chrom=chromosomes),
 		expand('{readtype}-reads/bam/{dataset}-{readtype}.chr{chrom}.cov{cov}.bam', dataset=dataset, chrom=chromosomes, cov=coverages, readtype=readtypes),
 
 ########## create polyploid VCFs by merging two (or three) diploid samples ##########
@@ -47,7 +48,7 @@ rule all:
 # extract phasing information for requested samples
 rule extract_child_phasing:
 	input:
-		lambda wildcards: '/local/data/hgsvc/whatshap/consensus/pacbioblasr/trio/{family}.chr{chrom}.vcf.gz'.format(family=sample2fam[wildcards.sample], chrom=wildcards.chrom)
+		lambda wildcards: '{path_trio}{family}.chr{chrom}.vcf.gz'.format(path_trio=path_trio_vcfs, family=sample2fam[wildcards.sample], chrom=wildcards.chrom)
 	output:
 		'original-vcfs/{sample,(HG00514|NA19240|HG00733)}.chr{chrom}.vcf.gz'
 	run:
@@ -68,9 +69,9 @@ rule vcf_union:
 # faidx
 rule faidx:
 	input:
-		'fasta/hg38.chr{chrom}.fa'
+		path_to_reference + 'hg38.chr{chrom}.fa'
 	output:
-		'fasta/hg38.chr{chrom}.fa.fai'
+		path_to_reference + 'hg38.chr{chrom}.fa.fai'
 	shell:
 		'samtools faidx {input}'
 
@@ -79,8 +80,8 @@ rule retype_variants:
 	input:
 		vcf='vcf/intermediate-files/union.chr{chrom}.vcf.gz',
 		bam=diploid_bams+'{sample}.chr{chrom}.bam',
-		fasta='fasta/hg38.chr{chrom}.fa',
-		fai='fasta/hg38.chr{chrom}.fa.fai'
+		fasta=path_to_reference + 'hg38.chr{chrom}.fa',
+		fai=path_to_reference + 'hg38.chr{chrom}.fa.fai'
 	output:
 		'retyped/{sample}.chr{chrom}.vcf.gz'
 	run:
@@ -277,13 +278,22 @@ rule merge_bams:
 	run:
 		shell('samtools merge {output} {input.bams}')
 		shell('samtools index {output}')
+		
+# create version of VCF containing only biallelic variants
+rule only_biallelic:
+	input:
+		'vcf/polyploid.chr{chrom}.vcf'
+	output:
+		'vcf/polyploid.chr{chrom}.biallelic.vcf'
+	shell:
+		'bcftools view --max-alleles 2 {input} > {output}'
 
 # create unphased version of the VCF
 rule remove_phase_information:
 	input:
-		'vcf/{dataset}.chr{chrom}.vcf'
+		'vcf/{dataset}.chr{chrom}.biallelic.vcf'
 	output:
-		'vcf/{dataset}.chr{chrom}.unphased.vcf.gz'
+		'vcf/{dataset}.chr{chrom}.biallelic-unphased.vcf.gz'
 	run:
 		shell('sed -e \'s#|#/#g\' {input} | rtg vcfsubset --remove-format=PS -i - -o {output}')
 

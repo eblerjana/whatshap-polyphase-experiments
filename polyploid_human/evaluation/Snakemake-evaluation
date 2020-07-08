@@ -2,19 +2,19 @@ configfile:'config.json'
 path_to_reference = config['path_to_reference']
 path_to_data = config['path_to_data']
 # results folder
-results='results'
+results='results-paper-Jul22'
 # path to whatshap
 whatshap = config['whatshap']
 # path to hpop
 hpop = config['hpop']
+# path to hapcompass
+hapcompass = config['hapcompass']
 
 # samples
 samples = config['samples']
-#samples = ['tetraploid', 'pentaploid', 'hexaploid']
 
 # phasing tools
 methods = config['methods']
-#methods = ['polyphase_sens0', 'polyphase_sens1', 'polyphase_sens2', 'polyphase_sens3', 'polyphase_sens4', 'hpop']
 
 # read types
 readtypes = config['readtypes']
@@ -23,20 +23,31 @@ sample_to_ploidy = {'tetraploid':4, 'pentaploid':5, 'hexaploid':6}
 
 rule all:
     input:
-        expand('{results}/evaluation/{readtype}-reads/{method}/{method}-{sample}.{readtype}.chr1.cov{coverage}.{which}.tsv', results=results, sample=samples, coverage=[40,80], method=methods, readtype=readtypes, which=['stats','pair']),
-        expand('{results}/evaluation/{readtype}-reads/{method}/{method}-{sample}.{readtype}.chr1.cov{coverage}.{which}.tsv', results=results, sample=samples, coverage=[40,80], method=methods, readtype=readtypes, which=['stats', 'pair']),
+        expand('{results}/evaluation/{readtype}-reads/{method}/{method}-{sample}.{readtype}.chr1.cov{coverage}.{which}.tsv', results=results, sample=samples, coverage=[40,80], method=methods, readtype=readtypes, which=['stats','pair'])
+        
+        
+rule allinone:
+    input:
+        expand('{results}/evaluation/{readtype}-reads/{method}/{method}-{sample}.{readtype}.chr1.cov{coverage}.{which}.tsv', results=results, sample=["tetraploid","hexaploid"], coverage=[40,80], method=["polyphase_sens1","polyphase_sens4","hpop"], readtype=["simulated","real"], which=['stats','pair']),
+        expand('{results}/evaluation/{readtype}-reads/{method}/{method}-{sample}.{readtype}.chr1.cov{coverage}.{which}.tsv', results=results, sample=["tetraploid"], coverage=[40,80], method=["polyphase_sens0","polyphase_sens2","polyphase_sens3","polyphase_sens5"], readtype=["simulated","real"], which=['stats','pair']),
+        expand('{results}/evaluation/{readtype}-reads/{method}/{method}-{sample}.{readtype}.chr1.cov{coverage}.{which}.tsv', results=results, sample=["pentaploid"], coverage=[40,80], method=["polyphase_sens1","polyphase_sens4","hpop"], readtype=["simulated"], which=['stats','pair'])
 
 
 # input data for phasing and evaluation
 def truth_vcf(wildcards):
-    return path_to_data+'vcf/{sample}.chr{chrom}.vcf.gz'.format(sample=wildcards.sample, chrom=wildcards.chrom)
+    return path_to_data+'vcf/{sample}.chr{chrom}.biallelic.vcf.gz'.format(sample=wildcards.sample, chrom=wildcards.chrom)
 
 def input_vcf_unphased(wildcards):
-    return path_to_data+'vcf/{sample}.chr{chrom}.vcf'.format(sample=wildcards.sample, chrom=wildcards.chrom)
+    return path_to_data+'vcf/{sample}.chr{chrom}.biallelic.vcf'.format(sample=wildcards.sample, chrom=wildcards.chrom)
 
 def phase_bam(wildcards):
     return path_to_data+'{readtype}-reads/bam/{sample}-{readtype}.chr{chrom}.cov{coverage}.bam'.format(readtype=wildcards.readtype, sample=wildcards.sample, chrom=wildcards.chrom, coverage=wildcards.coverage)
 
+def mem_consumption_polyphase(wildcards):
+    if wildcards.method[-1] == 0:
+        return int(wildcards.coverage)*200
+    else:
+        return int(wildcards.coverage)*40 + int(sample_to_ploidy[wildcards.sample] if wildcards.sample in sample_to_ploidy else 2) * 200
 
 # run polyphase
 rule run_polyphase:
@@ -46,6 +57,8 @@ rule run_polyphase:
         fasta= path_to_reference + 'hg38.chr{chrom}.fa'
     output:
         '{results}/phasing/{readtype}-reads/polyphase_{method}/polyphase_{method}-{sample}.{readtype}.chr{chrom}.cov{coverage}.vcf'
+    resources:
+        mem_mb=mem_consumption_polyphase
     log:
         '{results}/phasing/{readtype}-reads/polyphase_{method}/polyphase_{method}-{sample}.{readtype}.chr{chrom}.cov{coverage}.log'
     run:
@@ -60,8 +73,10 @@ rule run_hpop:
         vcf=input_vcf_unphased
     output:
         '{results}/phasing/{readtype}-reads/hpop/hpop-{sample}.{readtype}.chr{chrom}.cov{coverage}/hpop_solution.txt'
+    priority: 50
+    threads: 2
     resources:
-        gpu=1
+        hpop=1
     log:
         '{results}/phasing/{readtype}-reads/hpop/hpop-{sample}.{readtype}.chr{chrom}.cov{coverage}/hpop_solution.log'
     run:
@@ -77,6 +92,47 @@ rule hpop_to_vcf:
         '{results}/phasing/{readtype}-reads/hpop/hpop-{sample}.{readtype}.chr{chrom}.cov{coverage}.vcf'
     shell:
         'python3 scripts/hpop2vcf.py {input.txt} {input.vcf} {output}'
+
+# run haptree
+rule run_haptree:
+	input:
+		bam=phase_bam,
+		vcf=input_vcf_unphased
+	output:
+		'{results}/phasing/{readtype}-reads/haptree/haptree-{sample}.{readtype}.chr{chrom}.cov{coverage}/haptree_solution.txt'
+	resources:
+		gpu=1
+	log:
+		'{results}/phasing/{readtype}-reads/haptree/haptree-{sample}.{readtype}.chr{chrom}.cov{coverage}/haptree_solution.log'
+	run:
+		ploidy = 4 if wildcards.sample == 'polyploid' else 2
+		shell('time (java -jar {hpop} -a HapTree -p {ploidy} -v {input.vcf} -b {input.bam} -o {output}) &> {log}')
+
+# run hapcompass
+rule run_hapcompass:
+	input:
+		bam=phase_bam,
+		vcf=input_vcf_unphased
+	output:
+		'{results}/phasing/{readtype}-reads/hapcompass/hapcompass-{sample}.{readtype}.chr{chrom}.cov{coverage}/hapcompass_MWER_solution.txt'
+	log:
+		'{results}/phasing/{readtype}-reads/hapcompass/hapcompass-{sample}.{readtype}.chr{chrom}.cov{coverage}.log'
+	resources:
+		gpu=1
+	run:
+		ploidy = 4 if wildcards.sample == 'polyploid' else 2
+		# option -Xmx1g
+		shell('(time java -jar {hapcompass} -bam {input.bam} -vcf {input.vcf} -o {wildcards.results}/phasing/{wildcards.readtype}-reads/hapcompass/hapcompass-{wildcards.sample}.{wildcards.readtype}.chr{wildcards.chrom}.cov{wildcards.coverage}/hapcompass --ploidy {ploidy}) &> {log}')
+
+# convert hapcompass output to VCF-format
+rule hapcompass_to_vcf:
+	input:
+		txt='{results}/phasing/{readtype}-reads/hapcompass/hapcompass-{sample}.{readtype}.chr{chrom}.cov{coverage}/hapcompass_MWER_solution.txt',
+		vcf=input_vcf_unphased
+	output:
+		'{results}/phasing/{readtype}-reads/hapcompass/hapcompass-{sample}.{readtype}.chr{chrom}.cov{coverage}.vcf'
+	shell:
+		'python3 scripts/hapcompass-to-vcf.py {input.txt} {input.vcf} > {output}'
 
 rule evaluate:
     input:

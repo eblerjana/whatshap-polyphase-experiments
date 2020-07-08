@@ -1,14 +1,16 @@
 configfile:'config.json'
 path_to_reference = config['path_to_reference']
 # results folder
-results='results-paper-Dec10'
+results='results-paper-May26'
 # path to whatshap
 whatshap = config['whatshap']
 # path to hpop
 hpop = config['hpop']
+# path to hapcompass
+hapcompass = config['hapcompass']
 
 # phasing tools
-methods = ['polyphase_sens0', 'polyphase_sens1', 'polyphase_sens2', 'polyphase_sens3', 'polyphase_sens4', 'polyphase_sens5', 'hpop']
+methods = ['polyphase_sens0', 'polyphase_sens1', 'polyphase_sens2', 'polyphase_sens3', 'polyphase_sens4', 'polyphase_sens5', 'hpop'] #, 'hapcompass', 'haptree']
 
 rule all:
 	input:
@@ -16,12 +18,14 @@ rule all:
 		expand('{results}/evaluation/real-reads/{method}/{method}-polyploid.real.chr1.cov{coverage}.{which}.tsv', results=results, coverage=[40,80], method=methods, which=['stats', 'pair']),
 
 
+
+
 # input data for phasing and evaluation
 def truth_vcf(wildcards):
-	return '../data/vcf/polyploid.chr{chrom}.vcf.gz'.format(chrom=wildcards.chrom)
+	return '../data/vcf/polyploid.chr{chrom}.biallelic.vcf.gz'.format(chrom=wildcards.chrom)
 
 def input_vcf_unphased(wildcards):
-	return '../data/vcf/polyploid.chr{chrom}.unphased.vcf'.format(chrom=wildcards.chrom)
+	return '../data/vcf/polyploid.chr{chrom}.biallelic-unphased.vcf'.format(chrom=wildcards.chrom)
 
 def phase_bam(wildcards):
 	return '../data/{readtype}-reads/bam/polyploid-{readtype}.chr{chrom}.cov{coverage}.bam'.format(readtype=wildcards.readtype, chrom=wildcards.chrom, coverage=wildcards.coverage)
@@ -40,7 +44,7 @@ rule run_polyphase:
 	run:
 		ploidy = 4 if wildcards.sample == 'polyploid' else 2
 		blocks = '--block-cut-sensitivity {}'.format(wildcards.n_blocks[-1])
-		shell('(time {whatshap} polyphase --ignore-read-groups {blocks} -o {output} --reference {input.fasta} {input.vcf} {input.bam} {ploidy}) &> {log}')
+		shell('(time {whatshap} polyphase --ignore-read-groups {blocks} -o {output} --reference {input.fasta} --ploidy {ploidy} {input.vcf} {input.bam}) &> {log}')
 
 # run hpop
 rule run_hpop:
@@ -57,15 +61,56 @@ rule run_hpop:
 		ploidy = 4 if wildcards.sample == 'polyploid' else 2
 		shell('time (java -jar {hpop} -p {ploidy} -v {input.vcf} -b {input.bam} -o {output}) &> {log}')
 
-# convert hpop output to VCF-format
+# convert hpop/haptree output to VCF-format
 rule hpop_to_vcf:
 	input:
-		txt='{results}/phasing/{readtype}-reads/hpop/hpop-{sample}.{readtype}.chr{chrom}.cov{coverage}/hpop_solution.txt',
-		vcf='../data/vcf/polyploid.chr{chrom}.vcf'
+		txt='{results}/phasing/{readtype}-reads/{method, hpop|hapcompass}/{method}-{sample}.{readtype}.chr{chrom}.cov{coverage}/{method}_solution.txt',
+		vcf='../data/vcf/polyploid.chr{chrom}.biallelic.vcf'
 	output:
-		'{results}/phasing/{readtype}-reads/hpop/hpop-{sample}.{readtype}.chr{chrom}.cov{coverage}.vcf'
+		'{results}/phasing/{readtype}-reads/{method}/{method}-{sample}.{readtype}.chr{chrom}.cov{coverage}.vcf'
 	shell:
 		'python3 scripts/hpop2vcf.py {input.txt} {input.vcf} {output}'
+
+# run haptree
+rule run_haptree:
+	input:
+		bam=phase_bam,
+		vcf=input_vcf_unphased
+	output:
+		'{results}/phasing/{readtype}-reads/haptree/haptree-{sample}.{readtype}.chr{chrom}.cov{coverage}/haptree_solution.txt'
+	resources:
+		gpu=1
+	log:
+		'{results}/phasing/{readtype}-reads/haptree/haptree-{sample}.{readtype}.chr{chrom}.cov{coverage}/haptree_solution.log'
+	run:
+		ploidy = 4 if wildcards.sample == 'polyploid' else 2
+		shell('time (java -jar {hpop} -a HapTree -p {ploidy} -v {input.vcf} -b {input.bam} -o {output}) &> {log}')
+
+# run hapcompass
+rule run_hapcompass:
+	input:
+		bam=phase_bam,
+		vcf=input_vcf_unphased
+	output:
+		'{results}/phasing/{readtype}-reads/hapcompass/hapcompass-{sample}.{readtype}.chr{chrom}.cov{coverage}/hapcompass_MWER_solution.txt'
+	log:
+		'{results}/phasing/{readtype}-reads/hapcompass/hapcompass-{sample}.{readtype}.chr{chrom}.cov{coverage}.log'
+	resources:
+		gpu=1
+	run:
+		ploidy = 4 if wildcards.sample == 'polyploid' else 2
+		# option -Xmx1g
+		shell('(time java -jar {hapcompass} -bam {input.bam} -vcf {input.vcf} -o {wildcards.results}/phasing/{wildcards.readtype}-reads/hapcompass/hapcompass-{wildcards.sample}.{wildcards.readtype}.chr{wildcards.chrom}.cov{wildcards.coverage}/hapcompass --ploidy {ploidy}) &> {log}')
+
+# convert hapcompass output to VCF-format
+rule hapcompass_to_vcf:
+	input:
+		txt='{results}/phasing/{readtype}-reads/hapcompass/hapcompass-{sample}.{readtype}.chr{chrom}.cov{coverage}/hapcompass_MWER_solution.txt',
+		vcf=input_vcf_unphased
+	output:
+		'{results}/phasing/{readtype}-reads/hapcompass/hapcompass-{sample}.{readtype}.chr{chrom}.cov{coverage}.vcf'
+	shell:
+		'python3 scripts/hapcompass-to-vcf.py {input.txt} {input.vcf} > {output}'
 
 rule evaluate:
 	input:
@@ -78,7 +123,7 @@ rule evaluate:
 		'{results}/evaluation/{readtype}-reads/{method}/{method}-{sample}.{readtype}.chr{chrom}.cov{coverage}.pair.log'
 	run:
 		ploidy = 4 if wildcards.sample == 'polyploid' else 2
-		shell('{whatshap} compare {ploidy} {input.true} {input.phasing} --plot-blocksizes {output.pdf} --tsv-pairwise {output.tsv} > {log}')
+		shell('{whatshap} compare  {input.true} {input.phasing} --ploidy {ploidy} --plot-blocksizes {output.pdf} --tsv-pairwise {output.tsv} > {log}')
 
 rule stats:
 	input:
@@ -89,5 +134,5 @@ rule stats:
 	log:
 		'{results}/evaluation/{readtype}-reads/{method}/{method}-{sample}.{readtype}.chr{chrom}.cov{coverage}.stats.log'
 	run:
-		ploidy = 4 if wildcards.sample == 'polyploid' else 2
-		shell('{whatshap} stats {ploidy} {input.phasing} --chr-lengths {input.lengths} --tsv {output} > {log}')
+#		ploidy = 4 if wildcards.sample == 'polyploid' else 2
+		shell('{whatshap} stats {input.phasing} --chr-lengths {input.lengths} --tsv {output} > {log}')

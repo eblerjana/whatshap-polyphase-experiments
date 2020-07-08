@@ -7,7 +7,7 @@ def hpopToVcfConverter(phasing_path, vcf_input_path, vcf_output_path):
 		hpop_row = phasing_file.readline()
 		while hpop_row != None and hpop_row.startswith("*"):
 			hpop_row = phasing_file.readline()
-		while hpop_row != None and hpop_row.startswith("BLOCK:"):
+		while hpop_row != None and hpop_row.startswith("#BLOCK:"):
 			block_id += 1
 			hpop_row = phasing_file.readline()
 		# Parse vcf row. If end of file reached, set row to -1.
@@ -82,7 +82,7 @@ def hpopToVcfConverter(phasing_path, vcf_input_path, vcf_output_path):
 					hpop_row = phasing_file.readline()
 					while hpop_row != None and hpop_row.startswith("*"):
 						hpop_row = phasing_file.readline()
-					while hpop_row != None and hpop_row.startswith("BLOCK:"):
+					while hpop_row != None and hpop_row.startswith("#BLOCK:"):
 						block_id += 1
 						hpop_row = phasing_file.readline()
 					# Parse vcf row. If end of file reached, set row to -1.

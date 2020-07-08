@@ -1,5 +1,6 @@
 {
 	"path_to_reference": "../data/fasta/",
-	"hpop" : "../hpop/H-PoPG-v-0.1.2.jar",
-	"whatshap" : "../whatshap/whatshap/venv/bin/whatshap"
+	"hpop" : "../../../hpop/H-PoPG/H-PoPGv0.2.0.jar",
+	"whatshap" : "whatshap",
+	"hapcompass" : "../../../hapcompass/hapcompass_v0.8.2/hapcompass.jar"
 }

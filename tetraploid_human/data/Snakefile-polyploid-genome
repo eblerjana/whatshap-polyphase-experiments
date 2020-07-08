@@ -34,7 +34,7 @@ whatshap='/MMCI/TM/scratch/jebler/whatshap/whatshap/venv/bin/whatshap'
 rule all:
 	input:
 		expand('vcf/polyploid.chr{chrom}.vcf', chrom=chromosomes, cov=coverages),
-		expand('vcf/polyploid.chr{chrom}.unphased.vcf', chrom=chromosomes),
+		expand('vcf/polyploid.chr{chrom}.biallelic-unphased.vcf', chrom=chromosomes),
 		expand('simulated-reads/bam/polyploid-simulated.chr{chrom}.cov{cov}.bam', chrom=chromosomes, cov=coverages),
 		expand('real-reads/bam/polyploid-real.chr{chrom}.cov{cov}.bam', chrom=chromosomes, cov=[40, 80])
 
@@ -44,7 +44,7 @@ rule all:
 # extract phasing information for requested samples
 rule extract_child_phasing:
 	input:
-		lambda wildcards: '{path_trio}/{family}.chr{chrom}.vcf.gz'.format(path_trio=path_trio_vcfs, family=sample2fam[wildcards.sample], chrom=wildcards.chrom)
+		lambda wildcards: '{path_trio}{family}.chr{chrom}.vcf.gz'.format(path_trio=path_trio_vcfs, family=sample2fam[wildcards.sample], chrom=wildcards.chrom)
 	output:
 		'original-vcfs/{sample,(HG00514|NA19240|HG00733)}.chr{chrom}.vcf.gz'
 	run:
@@ -274,12 +274,22 @@ rule merge_bams:
 		shell('samtools merge {output} {input.bams}')
 		shell('samtools index {output}')
 
-# create unphased version of the VCF
-rule remove_phase_information:
+
+# create version of VCF containing only biallelic variants
+rule only_biallelic:
 	input:
 		'vcf/polyploid.chr{chrom}.vcf'
 	output:
-		'vcf/polyploid.chr{chrom}.unphased.vcf'
+		'vcf/polyploid.chr{chrom}.biallelic.vcf'
+	shell:
+		'bcftools view --max-alleles 2 {input} > {output}'
+
+# create unphased version of the VCF
+rule remove_phase_information:
+	input:
+		'vcf/polyploid.chr{chrom}.biallelic.vcf'
+	output:
+		'vcf/polyploid.chr{chrom}.biallelic-unphased.vcf'
 	run:
 		shell('sed -e \'s#|#/#g\' {input} | rtg vcfsubset --remove-format=PS --no-gzip -i - -o {output}')
 

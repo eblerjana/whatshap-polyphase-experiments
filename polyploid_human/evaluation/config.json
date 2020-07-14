@@ -1,6 +1,6 @@
 {
-	"path_to_reference":"/gpfs/project/projects/polyploid_phasing/fasta/",
-	"path_to_data":"/gpfs/project/projects/polyploid_phasing/",
+	"path_to_reference":"/gpfs/scratch/schrinne/polyphase_data/fasta/",
+	"path_to_data":"/gpfs/scratch/schrinne/polyphase_data/",
 	"hpop":"../hpop/H-PoPG-v-0.2.0.jar",
 	"whatshap":"whatshap",
 	"hapcompass" : "../../../hapcompass/hapcompass_v0.8.2/hapcompass.jar",

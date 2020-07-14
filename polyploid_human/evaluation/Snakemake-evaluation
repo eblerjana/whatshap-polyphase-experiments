@@ -35,7 +35,7 @@ rule allinone:
 
 # input data for phasing and evaluation
 def truth_vcf(wildcards):
-    return path_to_data+'vcf/{sample}.chr{chrom}.biallelic.vcf.gz'.format(sample=wildcards.sample, chrom=wildcards.chrom)
+    return path_to_data+'vcf/{sample}.chr{chrom}.biallelic.vcf'.format(sample=wildcards.sample, chrom=wildcards.chrom)
 
 def input_vcf_unphased(wildcards):
     return path_to_data+'vcf/{sample}.chr{chrom}.biallelic.vcf'.format(sample=wildcards.sample, chrom=wildcards.chrom)

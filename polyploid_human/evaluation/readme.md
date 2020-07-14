@@ -24,6 +24,8 @@ Leave out the results for real reads, because we did not generate them.
 
 ## Snakemake command
 
-Instead of running all configurations individually, there is a snakemake target called 'allinone', which was all the above configs hardcoded. The pipeline was run using the command:
+Instead of running all configurations individually, there is a snakemake target called 'allinone', which was all the above configs hardcoded. The pipeline was run using the command
 
-snakemake allinone --snakefile Snakemake-evaluation -k --cores 24 --resources mem_mb=64000 --resources hpop=1
+snakemake allinone --snakefile Snakemake-evaluation -k --cores X --resources mem_mb=Y --resources hpop=1
+
+where X CPU cores and Y MB of RAM was used.

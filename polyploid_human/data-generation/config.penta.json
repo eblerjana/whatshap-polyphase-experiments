@@ -1,0 +1,12 @@
+{
+    'path_reference_fastq':'/gpfs/scratch/schrinne/polyphase_data/SRR3658380.fastq',
+    'path_diploid_bams':'/gpfs/scratch/schrinne/polyphase_data/real_reads-diploid/',
+    'path_to_main':'/gpfs/scratch/schrinne/polyphase_data/',
+    'path_to_reads':'/local/data/hgsvc/pacbio/',
+    'path_to_trio_vcfs': '/local/data/hgsvc/whatshap/consensus/pacbioblasr/trio/',
+    'whatshap':'whatshap',
+    'chromosomes':[1],
+    'coverages':[48,96],
+    'dataset':'hexa',
+    'readtypes':['simulated']
+}

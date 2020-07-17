@@ -196,6 +196,11 @@ rule make_polyploid:
 						# PS tag
 						infos = field.split(':')
 						tags.append(int(infos[1]))
+						
+						if {dataset} == 'penta':
+							# TODO: Remove one haplotype
+							pass
+						
 					else:
 						# after the previous steps, there cannot be any unphased genotypes
 						assert(False)

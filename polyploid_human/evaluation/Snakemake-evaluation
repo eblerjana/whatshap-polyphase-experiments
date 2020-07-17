@@ -28,9 +28,9 @@ rule all:
         
 rule allinone:
     input:
-        expand('{results}/evaluation/{readtype}-reads/{method}/{method}-{sample}.{readtype}.chr1.cov{coverage}.{which}.tsv', results=results, sample=["tetraploid","hexaploid"], coverage=[40,80], method=["polyphase_sens1","polyphase_sens4","hpop"], readtype=["simulated","real"], which=['stats','pair']),
+        expand('{results}/evaluation/{readtype}-reads/{method}/{method}-{sample}.{readtype}.chr1.cov{coverage}.{which}.tsv', results=results, sample=["tetraploid"], coverage=[40,80], method=["polyphase_sens1","polyphase_sens4","hpop"], readtype=["simulated","real"], which=['stats','pair']),
         expand('{results}/evaluation/{readtype}-reads/{method}/{method}-{sample}.{readtype}.chr1.cov{coverage}.{which}.tsv', results=results, sample=["tetraploid"], coverage=[40,80], method=["polyphase_sens0","polyphase_sens2","polyphase_sens3","polyphase_sens5"], readtype=["simulated","real"], which=['stats','pair']),
-        expand('{results}/evaluation/{readtype}-reads/{method}/{method}-{sample}.{readtype}.chr1.cov{coverage}.{which}.tsv', results=results, sample=["pentaploid"], coverage=[40,80], method=["polyphase_sens1","polyphase_sens4","hpop"], readtype=["simulated"], which=['stats','pair'])
+        expand('{results}/evaluation/{readtype}-reads/{method}/{method}-{sample}.{readtype}.chr1.cov{coverage}.{which}.tsv', results=results, sample=["pentaploid","hexaploid"], coverage=[40,80], method=["polyphase_sens1","polyphase_sens4","hpop"], readtype=["simulated"], which=['stats','pair'])
 
 
 # input data for phasing and evaluation
@@ -76,7 +76,7 @@ rule run_hpop:
     priority: 50
     threads: 2
     resources:
-        hpop=1
+        hpop=1, mem_mb=100000
     log:
         '{results}/phasing/{readtype}-reads/hpop/hpop-{sample}.{readtype}.chr{chrom}.cov{coverage}/hpop_solution.log'
     run:
@@ -87,7 +87,7 @@ rule run_hpop:
 rule hpop_to_vcf:
     input:
         txt='{results}/phasing/{readtype}-reads/hpop/hpop-{sample}.{readtype}.chr{chrom}.cov{coverage}/hpop_solution.txt',
-        vcf=path_to_data+'vcf/{sample}.chr{chrom}.vcf'
+        vcf=path_to_data+'vcf/{sample}.chr{chrom}.biallelic.vcf'
     output:
         '{results}/phasing/{readtype}-reads/hpop/hpop-{sample}.{readtype}.chr{chrom}.cov{coverage}.vcf'
     shell:

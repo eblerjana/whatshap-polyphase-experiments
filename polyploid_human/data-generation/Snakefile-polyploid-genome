@@ -1,10 +1,10 @@
 ## given hgsvc trio phased vcfs, create artificial polyploid vcf 
 
-configfile:'config.tetra.json'
+configfile:'config.hexa.json'
 
 diploid_bams = config['path_diploid_bams']
+diploid_vcfs = config['path_diploid_vcfs']
 reference_fastq = config['path_reference_fastq']
-path_trio_vcfs = config['path_to_trio_vcfs']
 path_to_main = config['path_to_main']
 
 import os
@@ -50,20 +50,10 @@ rule all:
 
 ########## create polyploid VCFs by merging two (or three) diploid samples ##########
 
-# extract phasing information for requested samples
-rule extract_child_phasing:
-	input:
-		lambda wildcards: '{path_trio}{family}.chr{chrom}.vcf.gz'.format(path_trio=path_trio_vcfs, family=sample2fam[wildcards.sample], chrom=wildcards.chrom)
-	output:
-		path_to_main+'vcf-diploid/{sample,(HG00514|NA19240|HG00733)}.chr{chrom}.vcf.gz'
-	run:
-		shell('bcftools view -s {wildcards.sample} --output-type z --phased {input} -o {output}')
-		shell('tabix -p vcf {output}')
-
 # create union of varians
 rule vcf_union:
 	input:
-		vcfs=expand(path_to_main+'vcf-diploid/{sample}.chr{{chrom}}.vcf.gz', sample=sample_names)
+		vcfs=expand(diploid_vcfs+'{sample}.chr{{chrom}}.vcf.gz', sample=sample_names)
 	output:
 		path_to_main+'vcf/intermediate-files/union.chr{chrom}.vcf.gz'
 	run:
@@ -98,7 +88,7 @@ rule retype_variants:
 rule combine_vcfs:
 	input:
 		retyped='retyped/{sample}.chr{chrom}.vcf.gz',
-		phased=path_to_main+'vcf-diploid/{sample}.chr{chrom}.vcf.gz'
+		phased=diploid_vcfs+'{sample}.chr{chrom}.vcf.gz'
 	output:
 		'retyped/{sample}.chr{chrom}.combined.vcf'
 	shell:

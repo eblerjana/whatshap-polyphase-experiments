@@ -1,6 +1,0 @@
-{
-	"sample_fastq": "inputs/SRR3658380.fastq",
-	"path_to_trio_vcfs": "/local/data/hgsvc/whatshap/consensus/pacbioblasr/trio/",
-	"path_to_reference": "fasta/",
-	"path_to_reads": "/local/data/hgsvc/pacbio/"
-}

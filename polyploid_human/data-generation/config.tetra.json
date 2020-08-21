@@ -1,12 +1,11 @@
 {
-    'path_reference_fastq':'/gpfs/scratch/schrinne/polyphase_data/SRR3658380.fastq',
-    'path_diploid_bams':'/gpfs/scratch/schrinne/polyphase_data/real_reads-diploid/',
-    'path_to_main':'/gpfs/scratch/schrinne/polyphase_data/',
-    'path_to_reads':'/local/data/hgsvc/pacbio/',
-    'path_to_trio_vcfs': '/local/data/hgsvc/whatshap/consensus/pacbioblasr/trio/',
+    'path_reference_fastq':'/gpfs/scratch/schrinne/sim/SRR3658380.fastq',
+    'path_diploid_bams':'/gpfs/scratch/schrinne/real_reads-diploid/',
+    'path_diploid_vcfs':'/gpfs/scratch/schrinne/vcf-diploid/',
+    'path_to_main':'/gpfs/scratch/schrinne/',
     'whatshap':'whatshap',
     'chromosomes':[1],
     'coverages':[40,80],
     'dataset':'tetra',
-    'readtypes':['real','simulated']
+    'readtypes':['real']
 }
